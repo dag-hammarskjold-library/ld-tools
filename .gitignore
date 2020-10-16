@@ -1,0 +1,6 @@
+venv
+adhoc
+.vscode
+__pycache__
+.pyc
+logs
