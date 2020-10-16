@@ -79,7 +79,7 @@ def populate_graph(graph=None, uri=None):
 
     return g
 
-def skos_to_marc(uri):
+def to_marc(uri):
     g = populate_graph(graph=None, uri=uri)
 
     auth = Auth()

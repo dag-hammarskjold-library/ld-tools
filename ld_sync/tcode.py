@@ -1,4 +1,8 @@
-def mint(db):
+from ld_sync.config import Config
+
+db = Config.db_client[Config.dbname]
+
+def mint():
     res = db.thesaurus_codes.find().sort("field_035", -1).limit(1)
     max_code = res[0]['field_035']
     str_code = max_code.replace("T","")
@@ -8,7 +12,7 @@ def mint(db):
 
     return new_code
 
-def write(db,data):
+def write(data):
     try:
         db.thesaurus_codes.insert_one({
             "field_035": data['tcode'],
