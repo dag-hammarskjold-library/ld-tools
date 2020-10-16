@@ -20,6 +20,7 @@ class ProductionConfig(object):
 
 def get_config():
     flask_env = os.environ.setdefault('FLASK_ENV', 'development')
+    print(flask_env)
 
     if flask_env == 'production':
         return ProductionConfig
