@@ -12,13 +12,14 @@ def mint():
 
     return new_code
 
-def write(data):
+def save(tcode, auth_id, label, uri):
     try:
+        #print(tcode, auth_id, label, uri)
         db.thesaurus_codes.insert_one({
-            "field_035": data['tcode'],
-            "field_001": data['auth_id'],
-            "field_150": data['label'],
-            "uri": data['uri']
+            "field_035": tcode,
+            "field_001": auth_id,
+            "field_150": label,
+            "uri": uri
         })
     except:
         raise
