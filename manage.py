@@ -12,16 +12,52 @@ logging.basicConfig(filename='logs/update.log', level=logging.DEBUG)
 DB.connect(Config.connect_string)
 
 def create_term(args):
-    print(f'Creating from {args.uri}')
-    if args.reindex:
-        print("Will reindex metadata.un.org")
-    pass
+    # Step 0: We'd better not duplicate terms. Let's make sure nothing with this URI
+    # already exists in the auths collection
+    a = Auth.from_query(Query(Condition('035', {'a': args.uri})))
+    try:
+        logging.debug(f'The URI {args.uri} already exists in the auths collection as {a.id}. Run the update command instead.')
+        raise BaseException(f'The URI {args.uri} already exists in the auths collection. Run the update command instead.')
+    except AttributeError:
+        pass
+
+    logging.debug(f'Creating a new term from {args.uri}')
+    # Step 1: Reindex metadata.un.org and Elasticsearch
+    # To do: reimplement the metadata.un.org reindexing
+    print("Will reindex metadata.un.org")
+
+    # Step 2: Get SKOS from the URI location and make MARC from it
+    # To do: better error handling here. If the URI doesn't exist we should get a 404!
+    try:
+        skos_marc = skos.to_marc(args.uri)
+        logging.debug(f'MARC generated from SKOS\n{skos_marc.to_mrk()}')
+    except:
+        raise
+
+    # Step 3: Mint a tcode and assign it to a new 035
+    new_tcode = tcode.mint()
+    skos_marc.set('035','a', new_tcode, address=["+"])
+
+    # Step 4: Set the 008
+    skos_marc.set_008()
+
+    # Step 5: Commit the new record. 
+    logging.debug(f"New record to create from SKOS\n{skos_marc.to_mrk()}")
+    skos_marc.commit()
+    
+    # Step 6: Get the id of the newly committed record
+    query = Query({})
+    marc_auth = Auth.from_query(Query(Condition('035', {'a': new_tcode})))
+    
+    # Step 7: save the tcode to the thesaurus_codes collection
+    tcode.save(new_tcode, str(marc_auth.id), skos_marc.get_value('150','a'), args.uri)
 
 def update_term(args):
     logging.debug(f'Updating: uri={args.uri}, id={args.id}')
 
     # Step 1: Reindex metadata.un.org and Elasticsearch, if specified
     if args.reindex:
+        # To do: reimplement the metadata.un.org reindexing
         print("Will reindex metadata.un.org")
 
     # Step 2: Get SKOS from the URI location and make MARC from it
@@ -29,7 +65,7 @@ def update_term(args):
     logging.debug(f'MARC generated from SKOS\n{skos_marc.to_mrk()}')
 
     # Step 3: Get MARC from the authority id
-    marc_auth = Auth.find_one({'_id': int(args.id)})
+    marc_auth = Auth.from_id(int(args.id))
     logging.debug(f'{args.id} found\n{marc_auth.to_mrk()}')
 
     # Step 4: Merge the two records, importing the SKOS to the original MARC
