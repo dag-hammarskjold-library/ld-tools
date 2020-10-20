@@ -90,11 +90,23 @@ def update_term(args):
     if save_tcode:
         tcode.save(this_tcode, args.id, merged_marc.get_value('150','a'), args.uri)
 
+def update_all_terms(args):
+    args.reindex = False
+    for res in tcode.get_all():
+        try:
+            args.uri = res["uri"]
+            args.id = res["field_001"]
+            update_term(args)
+        except KeyError:
+            logging.debug(f'URI or 035 missing from: {res}')
+
+
 # Step 1: Set up argument parsing and get arguments
 parser = argparse.ArgumentParser(description='Create or update a Thesaurus term across existing systems.')
 subparsers = parser.add_subparsers(title='subcommands')
 create = subparsers.add_parser('create')
 update = subparsers.add_parser('update')
+update_all = subparsers.add_parser('update-all')
 
 create.add_argument('uri', metavar='uri', type=str)
 # Note: when creating a new term, we aren't skipping the reindex in metadata.un.org and Elasticsearch
@@ -104,6 +116,9 @@ update.add_argument('uri', metavar='uri', type=str)
 update.add_argument('id', help='The id/001 of an existing authority.')
 update.add_argument('--reindex', type=bool, default=False)
 update.set_defaults(func=update_term)
+
+update_all.add_argument('--reindex', type=bool, default=False)
+update_all.set_defaults(func=update_all_terms)
 
 args = parser.parse_args()
 args.func(args)

@@ -23,3 +23,9 @@ def save(tcode, auth_id, label, uri):
         })
     except:
         raise
+
+ref_coll = "thesaurus_codes"
+
+def get_all():
+    results = db.thesaurus_codes.find()
+    return results
