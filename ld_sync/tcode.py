@@ -27,5 +27,18 @@ def save(tcode, auth_id, label, uri):
 ref_coll = "thesaurus_codes"
 
 def get_all():
-    results = db.thesaurus_codes.find()
-    return results
+    results = db.thesaurus_codes.find().sort("uri")
+    return_results = []
+    for res in results:
+        try:
+            this_r = {
+                'field_035': res["field_035"],
+                'field_001': res["field_001"],
+                'field_150': res["field_150"],
+                'uri': res["uri"]
+            }
+            if this_r not in return_results:
+                return_results.append(this_r)
+        except KeyError:
+            next
+    return return_results

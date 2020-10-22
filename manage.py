@@ -1,6 +1,7 @@
 import logging
 import argparse
 import re
+from requests.exceptions import ConnectionError
 from pymongo import MongoClient
 from dlx.config import Config as dlxConfig
 from dlx.marc import DB, Auth, Query, Condition
@@ -96,7 +97,11 @@ def update_all_terms(args):
         try:
             args.uri = res["uri"]
             args.id = res["field_001"]
-            update_term(args)
+            this_id = args.uri.split('/')[-1]
+            try:
+                update_term(args)
+            except ConnectionError:
+                logging.error(f"ConnectionError on {args.uri} with id {args.id}")
         except KeyError:
             logging.debug(f'URI or 035 missing from: {res}')
 
