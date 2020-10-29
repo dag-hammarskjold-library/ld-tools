@@ -83,12 +83,17 @@ def to_marc(uri):
     g = populate_graph(graph=None, uri=uri)
 
     auth = Auth()
-    auth.set("035", "a", uri)
+    #auth.set("035", "a", uri)
+    field = Datafield(tag='035', record_type='auth').set('a', uri)
+    auth.fields.append(field)
+    
     for f035 in g.objects(URIRef(uri), DCTERMS.identifier):
         if "lib-thesaurus" in f035:
             pass
         else:
-            auth.set('035', 'a', f035, address=["+"])
+            #auth.set('035', 'a', f035, address=["+"])
+            field = Datafield(tag='035', record_type='auth').set('a', f035)
+            auth.fields.append(field)
 
     auth.set_values(
         ('040','a', 'NNUN'),
@@ -115,11 +120,12 @@ def to_marc(uri):
             for f550 in g.objects(URIRef(f072a), SKOS.prefLabel):
                 if f550.language == 'en':
                     try:
-                        auth.set('550', 'w', 'g', address=["+"])
-                        auth.set('550','a', f550)
-                        
+                        #auth.set('550', 'w', 'g', {'address': ["+"]})
+                        #auth.set('550','a', f550)
+                        datafield = Datafield(tag="550", record_type="auth").set('w', 'g').set('a', f550, auth_control=True)
+                        auth.fields.append(datafield)
                     except:
-                        print(f"Could not assign {f550} to 550")
+                        print(f"Could not assign {f550} to 550 as a broader term")
                         pass
 
     # related terms go in 550 with only $a
@@ -129,10 +135,12 @@ def to_marc(uri):
             if preflabel.language == 'en':
                     try:
                         #auth.set('550', 'w', 'g', address=["+"])
-                        auth.set('550','a', preflabel, address=["+"])
+                        #auth.set('550','a', preflabel, address=["+"])
+                        datafield = Datafield(tag="550", record_type="auth").set('a', preflabel, auth_control=True)
+                        auth.fields.append(datafield)
                         
                     except:
-                        print(f"Could not assign {preflabel} to 550")
+                        print(f"Could not assign {preflabel} to 550 as a related term")
                         pass
 
 
@@ -142,11 +150,12 @@ def to_marc(uri):
         for preflabel in g.objects(URIRef(f550), SKOS.prefLabel):
             if preflabel.language == 'en':
                     try:
-                        auth.set('550', 'w', 'h', address=["+"])
-                        auth.set('550','a', preflabel)
-                        
+                        #auth.set('550', 'w', 'h', {'address': ["+"]})
+                        #auth.set('550','a', preflabel)
+                        datafield = Datafield(tag="550", record_type="auth").set('w', 'h').set('a', preflabel, auth_control=True)
+                        auth.fields.append(datafield)
                     except:
-                        print(f"Could not assign {preflabel} to 550")
+                        print(f"Could not assign {preflabel} to 550 as a narrower term")
                         pass
     
     # English pref labels go in 150
@@ -182,5 +191,37 @@ def to_marc(uri):
         field.ind2 = ' '
         field.set('a', f670)
         auth.fields.append(field)
+    
+    return auth
+
+def merged(left, right):
+    # We keep what's in the left document and overwrite whatever is in the right document
+    auth = Auth()
+    auth.id = left.id
+
+    # find all the tags that are in the right (SKOS)
+    skos_tags = right.get_tags()
+
+    # and all the tags in the left (original MARC)
+    original_tags = left.get_tags()
+
+    # copy the original, because we're gonna subtract
+    keep_tags = original_tags
+
+    # Subbtract the skos tags from the original tags and store them in what we're keeping
+    for st in skos_tags:
+        keep_tags.remove(st)
+
+    # process the left side of the record (what we're keeping)
+    for tag in keep_tags:
+        this_fields = left.get_fields(tag)
+        for field in this_fields:
+            auth.fields.append(field)
+
+    # process the right side of the record (the incoming values from the SKOS)
+    for tag in skos_tags:
+        this_fields = right.get_fields(tag)
+        for field in this_fields:
+            auth.fields.append(field)
     
     return auth

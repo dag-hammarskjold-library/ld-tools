@@ -1,15 +1,17 @@
 import logging
 import argparse
 import re
+import os
 from requests.exceptions import ConnectionError
 from pymongo import MongoClient
 from dlx.config import Config as dlxConfig
-from dlx.marc import DB, Auth, Query, Condition
+from dlx.marc import DB, Auth, Query, Condition, Datafield
 from ld_sync import skos, tcode, mdu
 from ld_sync.config import Config
 
 # Init
-logging.basicConfig(filename='logs/update.log', level=logging.DEBUG)
+logging.basicConfig(filename='logs/update.log', level=logging.DEBUG, format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
+logging.debug(f'Started {os.environ.get("FLASK_ENV")}')
 DB.connect(Config.connect_string)
 
 def create_term(args):
@@ -70,7 +72,7 @@ def update_term(args):
     logging.debug(f'{args.id} found\n{marc_auth.to_mrk()}')
 
     # Step 4: Merge the two records, importing the SKOS to the original MARC
-    merged_marc = marc_auth.merge(skos_marc)
+    merged_marc = skos.merged(marc_auth, skos_marc)
     logging.debug(f'Merged record, with original MARC receving updates from the SKOS\n{merged_marc.to_mrk()}')
 
     # Step 5: Make sure the resulting merge has a tcode. Mint one if necessary.
@@ -81,7 +83,8 @@ def update_term(args):
             this_tcode = identifier
     if this_tcode is None:
         this_tcode = tcode.mint()
-        merged_marc.set('035','a', this_tcode, address=["+"])
+        field = Datafield(tag='035', record_type='auth').set('a', this_tcode)
+        merged_marc.fields.append(field)
         save_tcode = True
 
     # Step 6: Save the record to the database.
@@ -92,8 +95,10 @@ def update_term(args):
         tcode.save(this_tcode, args.id, merged_marc.get_value('150','a'), args.uri)
 
 def update_all_terms(args):
+    logging.debug("All terms")
     args.reindex = False
     for res in tcode.get_all():
+        logging.debug("foo")
         try:
             args.uri = res["uri"]
             args.id = res["field_001"]
